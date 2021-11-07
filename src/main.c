@@ -43,8 +43,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
 
 // TODO: use better interface name/path
-static const char *seogi_interface = "com.example.Seogi";
-static const char *seogi_path = "/com/example/Seogi";
+static const char *seogi_service = "com.example.Seogi";
+static const char *seogi_root_path = "/com/example/Seogi";
+static const char *seogi_seat_manager_path = "/com/example/Seogi/SeatManager";
+static const char *seogi_seat_interface = "com.example.Seogi.Seat";
 
 static int get_status_property(
   sd_bus *bus,
@@ -55,19 +57,34 @@ static int get_status_property(
   void *userdata,
   sd_bus_error *ret_error
 ) {
+  char *seat_name = NULL;
+
+  int ret = 0;
+  if ((ret = sd_bus_path_decode(path, seogi_seat_manager_path, &seat_name)) < 1) {
+    return ret;
+  }
+
   struct seogi_state *state = userdata;
   struct seogi_seat *seat;
-  sd_bus_message_open_container(reply, 'a', "{sb}");
+  bool found = false;
   wl_list_for_each(seat, &state->seats, link) {
-    sd_bus_message_append(reply, "{sb}", seat->name, seat->enabled);
+    if (strcmp(seat_name, seat->name) == 0) {
+      sd_bus_message_append(reply, "b", seat->enabled);
+      found = true;
+      break;
+    }
   }
-  sd_bus_message_close_container(reply);
+  free(seat_name);
+
+  if (!found) {
+    return EINVAL;
+  }
   return 1;
 }
 
-static const sd_bus_vtable seogi_vtable[] = {
+static const sd_bus_vtable seogi_seat_vtable[] = {
   SD_BUS_VTABLE_START(0),
-  SD_BUS_PROPERTY("Status", "a{sb}", get_status_property, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+  SD_BUS_PROPERTY("Status", "b", get_status_property, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
   SD_BUS_VTABLE_END,
 };
 
@@ -77,7 +94,21 @@ static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat, uint32
 
 static void seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name) {
   struct seogi_seat *seat = data;
+  struct seogi_state *state = seat->state;
   seat->name = strdup(name);
+
+  char *seat_path = NULL;
+  int ret = sd_bus_path_encode(seogi_seat_manager_path, name, &seat_path);
+  if (ret < 0) {
+    fprintf(stderr, "sd_bus_path_encode failed. prefix: %s, name: %s, errnum: %d\n", seogi_root_path, name, ret);
+    return;
+  }
+
+  ret = sd_bus_add_object_vtable(state->bus, NULL, seat_path, seogi_seat_interface, seogi_seat_vtable, state);
+  free(seat_path);
+  if (ret < 0) {
+    fprintf(stderr, "sd_bus_add_object_vtable failed: %d\n", ret);
+  }
 }
 
 static const struct wl_seat_listener wl_seat_listener = {
@@ -90,9 +121,7 @@ static struct seogi_seat *create_seat(struct seogi_state *state, struct wl_seat 
   seat->wl_seat = wl_seat;
   seat->state = state;
   wl_seat_add_listener(wl_seat, &wl_seat_listener, seat);
-
   wl_list_insert(&state->seats, &seat->link);
-
   return seat;
 }
 
@@ -130,7 +159,7 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
 
   if (sym == seat->state->toggle_key) {
     seat->enabled = !seat->enabled;
-    sd_bus_emit_properties_changed(seat->state->bus, seogi_path, seogi_interface, "Status", NULL);
+    sd_bus_emit_properties_changed(seat->state->bus, seogi_root_path, seogi_service, "Status", NULL);
     if (!seat->enabled) {
       hangul_ic_reset(seat->input_context);
     }
@@ -389,6 +418,20 @@ int main(int argc, char *argv[]) {
 
   argp_parse(&argp, argc, argv, 0, 0, &state);
 
+  int ret;
+  if ((ret = sd_bus_open_user(&state.bus)) < 0) {
+    fprintf(stderr, "sd_bus_open failed: %d\n", ret);
+    return 1;
+  }
+  if ((ret = sd_bus_request_name(state.bus, seogi_service, 0)) < 0) {
+    fprintf(stderr, "sd_bus_request_name failed: %d\n", ret);
+    return 1;
+  }
+  if ((ret = sd_bus_add_object_manager(state.bus, NULL, seogi_seat_manager_path)) < 0) {
+    fprintf(stderr, "sd_bus_add_object_manager failed: %d\n", ret);
+    return 1;
+  }
+
   state.display = wl_display_connect(NULL);
   if (state.display == NULL) {
     fprintf(stderr, "failed to connect to Wayland display\n");
@@ -401,24 +444,6 @@ int main(int argc, char *argv[]) {
 
   if (state.input_method_manager == NULL) {
     fprintf(stderr, "unable to initialize zwp_input_method_manager_v2\n");
-    return 1;
-  }
-
-  sd_bus_slot *slot = NULL;
-
-  int ret = sd_bus_open_user(&state.bus);
-  if (ret < 0) {
-    fprintf(stderr, "sd_bus_open failed: %d\n", ret);
-    return 1;
-  }
-  ret = sd_bus_request_name(state.bus, seogi_interface, 0);
-  if (ret < 0) {
-    fprintf(stderr, "sd_bus_request_name failed: %d\n", ret);
-    return 1;
-  }
-  ret = sd_bus_add_object_vtable(state.bus, &slot, seogi_path, seogi_interface, seogi_vtable, &state);
-  if (ret < 0) {
-    fprintf(stderr, "sd_bus_add_object_vtable failed: %d\n", ret);
     return 1;
   }
 
@@ -439,7 +464,6 @@ int main(int argc, char *argv[]) {
   init_event_loop(&loop, state.bus, state.display);
   run_event_loop(&loop);
 
-  sd_bus_slot_unref(slot);
   sd_bus_unref(state.bus);
 
   return 0;
