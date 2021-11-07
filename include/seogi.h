@@ -2,6 +2,7 @@
 
 #include <hangul.h>
 #include <stdbool.h>
+#include <systemd/sd-bus.h>
 #include <wayland-client-core.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -9,6 +10,8 @@ struct seogi_state {
   struct wl_display *display;  
   struct zwp_input_method_manager_v2 *input_method_manager;
   struct zwp_virtual_keyboard_manager_v1 *virtual_keyboard_manager;
+
+  struct sd_bus *bus;
 
   bool running;
 
@@ -22,6 +25,8 @@ struct seogi_seat {
   struct wl_list link;
   struct wl_seat *wl_seat;
   struct seogi_state *state;
+
+  const char *name;
 
   HangulInputContext *input_context;
   struct zwp_input_method_v2 *input_method;

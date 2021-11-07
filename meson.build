@@ -17,11 +17,12 @@ add_project_arguments(
   language: 'c'
 )
 
-src_files = files('src/main.c', 'src/utf8.c')
+src_files = files('src/event-loop.c', 'src/main.c', 'src/utf8.c')
 
 include_dirs = include_directories('include')
 
 libhangul = dependency('libhangul')
+libsystemd = dependency('libsystemd')
 wayland_client = dependency('wayland-client')
 wayland_protocols = dependency('wayland-protocols')
 xkbcommon = dependency('xkbcommon')
@@ -32,6 +33,6 @@ executable(
   meson.project_name(),
   src_files,
   include_directories: include_dirs,
-  dependencies: [libhangul, wayland_client, xkbcommon],
+  dependencies: [libhangul, libsystemd, wayland_client, xkbcommon],
   install: true,
 )

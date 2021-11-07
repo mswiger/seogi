@@ -1,10 +1,13 @@
 #include <argp.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <systemd/sd-bus.h>
 #include <unistd.h>
 #include <wayland-client.h>
+#include "event-loop.h"
 #include "seogi.h"
 #include "input-method-unstable-v2-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
@@ -39,11 +42,57 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
 
+// TODO: use better interface name/path
+static const char *seogi_interface = "com.example.Seogi";
+static const char *seogi_path = "/com/example/Seogi";
+
+static int get_status_property(
+  sd_bus *bus,
+  const char *path,
+  const char *interface,
+  const char *property,
+  sd_bus_message *reply,
+  void *userdata,
+  sd_bus_error *ret_error
+) {
+  struct seogi_state *state = userdata;
+  struct seogi_seat *seat;
+  sd_bus_message_open_container(reply, 'a', "{sb}");
+  wl_list_for_each(seat, &state->seats, link) {
+    sd_bus_message_append(reply, "{sb}", seat->name, seat->enabled);
+  }
+  sd_bus_message_close_container(reply);
+  return 1;
+}
+
+static const sd_bus_vtable seogi_vtable[] = {
+  SD_BUS_VTABLE_START(0),
+  SD_BUS_PROPERTY("Status", "a{sb}", get_status_property, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+  SD_BUS_VTABLE_END,
+};
+
+static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
+  // No-op
+}
+
+static void seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name) {
+  struct seogi_seat *seat = data;
+  seat->name = strdup(name);
+}
+
+static const struct wl_seat_listener wl_seat_listener = {
+  .capabilities = seat_handle_capabilities,
+  .name = seat_handle_name,
+};
+
 static struct seogi_seat *create_seat(struct seogi_state *state, struct wl_seat *wl_seat) {
   struct seogi_seat *seat = calloc(1, sizeof(*seat));
   seat->wl_seat = wl_seat;
   seat->state = state;
+  wl_seat_add_listener(wl_seat, &wl_seat_listener, seat);
+
   wl_list_insert(&state->seats, &seat->link);
+
   return seat;
 }
 
@@ -57,7 +106,7 @@ static void registry_handle_global(
   struct seogi_state *state = data;
   
   if (strcmp(interface, wl_seat_interface.name) == 0) {
-    struct wl_seat *seat = wl_registry_bind(registry, name, &wl_seat_interface, 1);
+    struct wl_seat *seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
     create_seat(state, seat);
   } else if (strcmp(interface, zwp_input_method_manager_v2_interface.name) == 0) {
     state->input_method_manager = wl_registry_bind(registry, name, &zwp_input_method_manager_v2_interface, 1);
@@ -81,6 +130,7 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
 
   if (sym == seat->state->toggle_key) {
     seat->enabled = !seat->enabled;
+    sd_bus_emit_properties_changed(seat->state->bus, seogi_path, seogi_interface, "Status", NULL);
     if (!seat->enabled) {
       hangul_ic_reset(seat->input_context);
     }
@@ -354,6 +404,24 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  sd_bus_slot *slot = NULL;
+
+  int ret = sd_bus_open_user(&state.bus);
+  if (ret < 0) {
+    fprintf(stderr, "sd_bus_open failed: %d\n", ret);
+    return 1;
+  }
+  ret = sd_bus_request_name(state.bus, seogi_interface, 0);
+  if (ret < 0) {
+    fprintf(stderr, "sd_bus_request_name failed: %d\n", ret);
+    return 1;
+  }
+  ret = sd_bus_add_object_vtable(state.bus, &slot, seogi_path, seogi_interface, seogi_vtable, &state);
+  if (ret < 0) {
+    fprintf(stderr, "sd_bus_add_object_vtable failed: %d\n", ret);
+    return 1;
+  }
+
   struct seogi_seat *seat;
   wl_list_for_each(seat, &state.seats, link) {
     seat->input_context = hangul_ic_new("2"); // TODO: Allow for other keyboard types
@@ -367,10 +435,12 @@ int main(int argc, char *argv[]) {
     seat->enabled = state.enabled_by_default;
   }
 
-  state.running = true;
-  while (state.running && wl_display_dispatch(state.display) != -1) {
-    // This space is intentionally left blank
-  }
+  struct seogi_event_loop loop = { 0 };
+  init_event_loop(&loop, state.bus, state.display);
+  run_event_loop(&loop);
+
+  sd_bus_slot_unref(slot);
+  sd_bus_unref(state.bus);
 
   return 0;
 }
