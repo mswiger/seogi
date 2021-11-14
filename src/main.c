@@ -42,11 +42,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
 
-// TODO: use better interface name/path
-static const char *seogi_service = "com.example.Seogi";
-static const char *seogi_root_path = "/com/example/Seogi";
-static const char *seogi_seat_manager_path = "/com/example/Seogi/SeatManager";
-static const char *seogi_seat_interface = "com.example.Seogi.Seat";
+static const char *seogi_service = "dev.swiger.Seogi";
+static const char *seogi_root_path = "/dev/swiger/Seogi";
+static const char *seogi_seat_manager_path = "/dev/swiger/Seogi/SeatManager";
+static const char *seogi_seat_interface = "dev.swiger.Seogi.Seat";
 
 static int get_status_property(
   sd_bus *bus,
