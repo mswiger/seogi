@@ -13,8 +13,6 @@ struct seogi_state {
 
   struct sd_bus *bus;
 
-  bool running;
-
   struct wl_list seats;
 
   bool enabled_by_default;
