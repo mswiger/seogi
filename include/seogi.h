@@ -44,4 +44,3 @@ struct seogi_seat {
   xkb_keycode_t pressed[64];
 };
 
-char *ucsstr_to_str(const ucschar *ucsstr);

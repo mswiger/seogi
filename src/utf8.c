@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
-#include "seogi.h"
+#include "utf8.h"
 
 static size_t ucschar_len(ucschar ch) {
   if (ch < 0x80) {

@@ -10,6 +10,8 @@
 #include "dbus.h"
 #include "event-loop.h"
 #include "seogi.h"
+#include "utf8.h"
+
 #include "input-method-unstable-v2-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 
