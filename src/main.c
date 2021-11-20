@@ -15,36 +15,6 @@
 #include "input-method-unstable-v2-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
 
-static char doc[] =
-  "Hangul IME for Wayland\v"
-  "See xkbcommon/xkbcommon-keysyms.h for possible toggle key names (remove the XKB_KEY_ prefix).";
-
-static struct argp_option options[] = {
-  { "hangul", 'H', 0, 0, "If specified, start in hangul input mode", 0 },
-  { "toggle-key", 'k', "KEY", 0, "Key to toggle hangul input (default: Hangul)", 0 },
-  { 0 },
-};
-
-static error_t parse_opt(int key, char *arg, struct argp_state *state) {
-  struct seogi_state *seogi_state = state->input;
-  switch (key) {
-  case 'H':
-    seogi_state->enabled_by_default = true;
-    break;
-  case 'k':
-    seogi_state->toggle_key = xkb_keysym_from_name(arg, XKB_KEYSYM_NO_FLAGS);
-    if (seogi_state->toggle_key == XKB_KEY_NoSymbol) {
-      argp_failure(state, 1, 0, "`%s' is not a valid key name", arg);
-    }
-    break;
-  default:
-    return ARGP_ERR_UNKNOWN;
-  }
-  return 0;
-}
-
-static struct argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
-
 static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
   // No-op
 }
@@ -354,6 +324,36 @@ static const struct zwp_input_method_v2_listener input_method_listener = {
   .done = handle_done,
   .unavailable = handle_unavailable,
 };
+
+static char doc[] =
+  "Hangul IME for Wayland\v"
+  "See xkbcommon/xkbcommon-keysyms.h for possible toggle key names (remove the XKB_KEY_ prefix).";
+
+static struct argp_option options[] = {
+  { "hangul", 'H', 0, 0, "If specified, start in hangul input mode", 0 },
+  { "toggle-key", 'k', "KEY", 0, "Key to toggle hangul input (default: Hangul)", 0 },
+  { 0 },
+};
+
+static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+  struct seogi_state *seogi_state = state->input;
+  switch (key) {
+  case 'H':
+    seogi_state->enabled_by_default = true;
+    break;
+  case 'k':
+    seogi_state->toggle_key = xkb_keysym_from_name(arg, XKB_KEYSYM_NO_FLAGS);
+    if (seogi_state->toggle_key == XKB_KEY_NoSymbol) {
+      argp_failure(state, 1, 0, "`%s' is not a valid key name", arg);
+    }
+    break;
+  default:
+    return ARGP_ERR_UNKNOWN;
+  }
+  return 0;
+}
+
+static struct argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
 
 int main(int argc, char *argv[]) {
   struct seogi_state state = { 0 };
