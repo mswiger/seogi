@@ -26,7 +26,7 @@ protocols.
 
 Currently only Sway has been tested.
 After running `seogi`, the mode can be toggled with the Hangul key by default.
-The toggle key can be modified as follows
+The toggle key can be modified as follows:
 
     seogi -k Alt_R
 
