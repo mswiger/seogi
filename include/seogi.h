@@ -6,6 +6,8 @@
 #include <wayland-client-core.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "key-buffer.h"
+
 struct seogi_state {
   struct wl_display *display;  
   struct zwp_input_method_manager_v2 *input_method_manager;
@@ -41,6 +43,7 @@ struct seogi_seat {
   uint32_t serial;
   bool pending_activate;
   bool pending_deactivate;
-  xkb_keycode_t pressed[64];
+  key_buffer_t handled_keys;
+  key_buffer_t pressed_keys;
 };
 

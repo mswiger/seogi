@@ -108,27 +108,17 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
   zwp_input_method_v2_commit(seat->input_method, seat->serial);
 
   if (handled) {
-    for (size_t i = 0; i < sizeof(seat->pressed) / sizeof(seat->pressed[0]); i++) {
-      if (seat->pressed[i] == 0) {
-        seat->pressed[i] = xkb_key;
-        break;
-      }
-    }
+    key_buffer_insert(seat->handled_keys, xkb_key);
   }
+  key_buffer_insert(seat->pressed_keys, xkb_key);
 
   return handled;
 }
 
 static bool handle_key_released(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
-    bool handled = false;
-    for (size_t i = 0; i < sizeof(seat->pressed) / sizeof(seat->pressed[0]); i++) {
-      if (seat->pressed[i] == xkb_key) {
-        seat->pressed[i] = 0;
-        handled = true;
-        break;
-      }
-    }
-    return handled;
+  bool handled = key_buffer_remove(seat->handled_keys, xkb_key);
+  key_buffer_remove(seat->pressed_keys, xkb_key);
+  return handled;
 }
 
 static void handle_key(
@@ -300,9 +290,20 @@ static void handle_done(void *data, struct zwp_input_method_v2 *input_method) {
     zwp_input_method_keyboard_grab_v2_add_listener(seat->keyboard_grab, &keyboard_grab_listener, seat);
     seat->active = true;
   } else if (seat->pending_deactivate && seat->active)  {
+    // Make sure to send 'release key' events for keys that are pressed when the "done" event is
+    // received. It seems that releasing keys after the 'done' event is received causes the
+    // "key released" key events to be swallowed, which makes Wayland clients behave strangely.
+    for (size_t i = 0; i < KEY_BUFFER_ITER_LENGTH; i++) {
+      if (seat->pressed_keys[i] != 0) {
+        uint32_t key = seat->pressed_keys[i] - 8;
+        zwp_virtual_keyboard_v1_key(seat->virtual_keyboard, 0, key, WL_KEYBOARD_KEY_STATE_RELEASED);
+      }
+    }
+
     zwp_input_method_keyboard_grab_v2_release(seat->keyboard_grab);
     hangul_ic_reset(seat->input_context);
-    memset(seat->pressed, 0, sizeof(seat->pressed));
+    key_buffer_clear(seat->handled_keys);
+    key_buffer_clear(seat->pressed_keys);
     seat->keyboard_grab = NULL;
     seat->active = false;
   }

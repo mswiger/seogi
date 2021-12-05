@@ -17,7 +17,7 @@ add_project_arguments(
   language: 'c'
 )
 
-src_files = files('src/dbus.c', 'src/event-loop.c', 'src/main.c', 'src/utf8.c')
+src_files = files('src/dbus.c', 'src/event-loop.c', 'src/key-buffer.c', 'src/main.c', 'src/utf8.c')
 
 include_dirs = include_directories('include')
 
