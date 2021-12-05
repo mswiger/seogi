@@ -23,8 +23,8 @@ Additionally, your Wayland compositor must support the
 and
 [virtual-keyboard-unstable-v1](https://gitlab.freedesktop.org/wlroots/wlroots/-/blob/master/protocol/virtual-keyboard-unstable-v1.xml)
 protocols.
-
 Currently only Sway has been tested.
+
 After running `seogi`, the mode can be toggled with the Hangul key by default.
 The toggle key can be modified as follows:
 
