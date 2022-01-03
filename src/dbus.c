@@ -9,6 +9,77 @@ static const char *seogi_service = "dev.swiger.Seogi";
 static const char *seogi_seat_manager_path = "/dev/swiger/Seogi/SeatManager";
 static const char *seogi_seat_interface = "dev.swiger.Seogi.Seat";
 
+static int find_seat_by_path(const char *path, struct seogi_state *state, struct seogi_seat **found_seat) {
+  char *seat_name = NULL;
+
+  int ret = 0;
+  if ((ret = sd_bus_path_decode(path, seogi_seat_manager_path, &seat_name)) < 1) {
+    return ret;
+  }
+
+  struct seogi_seat *seat;
+  bool found = false;
+  wl_list_for_each(seat, &state->seats, link) {
+    if (strcmp(seat_name, seat->name) == 0) {
+      found = true;
+      *found_seat = seat;
+      break;
+    }
+  }
+  free(seat_name);
+
+  if (!found) {
+    return EINVAL;
+  }
+
+  return 1;
+}
+
+static int toggle_seat(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+  struct seogi_state *state = userdata;
+  struct seogi_seat *seat;
+  const char *path = sd_bus_message_get_path(msg);
+
+  int ret = 0;
+  if ((ret = find_seat_by_path(path, state, &seat)) < 1) {
+    return ret;
+  }
+
+  seogi_toggle_seat(seat);
+
+  return sd_bus_reply_method_return(msg, "");
+}
+
+static int enable_seat(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+  struct seogi_state *state = userdata;
+  struct seogi_seat *seat;
+  const char *path = sd_bus_message_get_path(msg);
+
+  int ret = 0;
+  if ((ret = find_seat_by_path(path, state, &seat)) < 1) {
+    return ret;
+  }
+
+  seogi_enable_seat(seat);
+
+  return sd_bus_reply_method_return(msg, "");
+}
+
+static int disable_seat(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+  struct seogi_state *state = userdata;
+  struct seogi_seat *seat;
+  const char *path = sd_bus_message_get_path(msg);
+
+  int ret = 0;
+  if ((ret = find_seat_by_path(path, state, &seat)) < 1) {
+    return ret;
+  }
+
+  seogi_disable_seat(seat);
+
+  return sd_bus_reply_method_return(msg, "");
+}
+
 static int get_status_property(
   sd_bus *bus,
   const char *path,
@@ -18,33 +89,23 @@ static int get_status_property(
   void *userdata,
   sd_bus_error *ret_error
 ) {
-  char *seat_name = NULL;
+  struct seogi_state *state = userdata;
+  struct seogi_seat *seat;
 
   int ret = 0;
-  if ((ret = sd_bus_path_decode(path, seogi_seat_manager_path, &seat_name)) < 1) {
+  if ((ret = find_seat_by_path(path, state, &seat)) < 1) {
     return ret;
   }
 
-  struct seogi_state *state = userdata;
-  struct seogi_seat *seat;
-  bool found = false;
-  wl_list_for_each(seat, &state->seats, link) {
-    if (strcmp(seat_name, seat->name) == 0) {
-      sd_bus_message_append(reply, "b", seat->enabled);
-      found = true;
-      break;
-    }
-  }
-  free(seat_name);
-
-  if (!found) {
-    return EINVAL;
-  }
+  sd_bus_message_append(reply, "b", seat->enabled);
   return 1;
 }
 
 static const sd_bus_vtable seogi_seat_vtable[] = {
   SD_BUS_VTABLE_START(0),
+  SD_BUS_METHOD("Disable", "", "", disable_seat, 0),
+  SD_BUS_METHOD("Enable", "", "", enable_seat, 0),
+  SD_BUS_METHOD("Toggle", "", "", toggle_seat, 0),
   SD_BUS_PROPERTY("Status", "b", get_status_property, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
   SD_BUS_VTABLE_END,
 };

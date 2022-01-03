@@ -9,35 +9,12 @@
 
 #include "dbus.h"
 #include "event-loop.h"
+#include "seat.h"
 #include "seogi.h"
 #include "utf8.h"
 
 #include "input-method-unstable-v2-client-protocol.h"
 #include "virtual-keyboard-unstable-v1-client-protocol.h"
-
-static void seat_handle_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
-  // No-op
-}
-
-static void seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name) {
-  struct seogi_seat *seat = data;
-  seat->name = strdup(name);
-  seogi_create_dbus_seat(seat);
-}
-
-static const struct wl_seat_listener wl_seat_listener = {
-  .capabilities = seat_handle_capabilities,
-  .name = seat_handle_name,
-};
-
-static struct seogi_seat *create_seat(struct seogi_state *state, struct wl_seat *wl_seat) {
-  struct seogi_seat *seat = calloc(1, sizeof(*seat));
-  seat->wl_seat = wl_seat;
-  seat->state = state;
-  wl_seat_add_listener(wl_seat, &wl_seat_listener, seat);
-  wl_list_insert(&state->seats, &seat->link);
-  return seat;
-}
 
 static void registry_handle_global(
   void *data,
@@ -50,7 +27,7 @@ static void registry_handle_global(
   
   if (strcmp(interface, wl_seat_interface.name) == 0) {
     struct wl_seat *seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
-    create_seat(state, seat);
+    seogi_create_seat(state, seat);
   } else if (strcmp(interface, zwp_input_method_manager_v2_interface.name) == 0) {
     state->input_method_manager = wl_registry_bind(registry, name, &zwp_input_method_manager_v2_interface, 1);
   } else if (strcmp(interface, zwp_virtual_keyboard_manager_v1_interface.name) == 0) {

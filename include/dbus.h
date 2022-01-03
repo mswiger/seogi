@@ -1,5 +1,6 @@
 #pragma once
 
+#include "seat.h"
 #include "seogi.h"
 
 bool seogi_init_dbus(struct seogi_state *state);
