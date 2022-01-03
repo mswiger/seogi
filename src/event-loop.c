@@ -3,7 +3,7 @@
 #include <wayland-client.h>
 #include "event-loop.h"
 
-void init_event_loop(struct seogi_event_loop *loop, struct sd_bus *bus, struct wl_display *display) {
+void seogi_init_event_loop(struct seogi_event_loop *loop, struct sd_bus *bus, struct wl_display *display) {
   loop->fds[SEOGI_EVENT_DBUS] = (struct pollfd) {
     .fd = sd_bus_get_fd(bus),
     .events = POLLIN,
@@ -18,7 +18,7 @@ void init_event_loop(struct seogi_event_loop *loop, struct sd_bus *bus, struct w
   loop->display = display;
 }
 
-int run_event_loop(struct seogi_event_loop *loop) {
+int seogi_run_event_loop(struct seogi_event_loop *loop) {
   loop->running = true;
 
   int ret = 0;

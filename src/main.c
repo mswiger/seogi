@@ -371,8 +371,8 @@ int main(int argc, char *argv[]) {
   }
 
   struct seogi_event_loop loop = { 0 };
-  init_event_loop(&loop, state.bus, state.display);
-  run_event_loop(&loop);
+  seogi_init_event_loop(&loop, state.bus, state.display);
+  seogi_run_event_loop(&loop);
 
   seogi_shutdown_dbus(&state);
 

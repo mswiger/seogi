@@ -19,5 +19,5 @@ struct seogi_event_loop {
   bool running;
 };
 
-void init_event_loop(struct seogi_event_loop *loop, struct sd_bus *bus, struct wl_display *display);
-int run_event_loop(struct seogi_event_loop *loop);
+void seogi_init_event_loop(struct seogi_event_loop *loop, struct sd_bus *bus, struct wl_display *display);
+int seogi_run_event_loop(struct seogi_event_loop *loop);
