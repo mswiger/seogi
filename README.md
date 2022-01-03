@@ -38,6 +38,7 @@ Remove the `XKB_KEY_` prefix from the key name and pass it to `seogi` through th
 For a more complete list of parameters, run `seogi --help`.
 
 Seogi includes a D-Bus service for observing its state (i.e., whether or not Hangul mode is enabled).
+It also includes methods for toggling, enabling, or disabling Seogi on a seat.
 See [seogi-waybar](https://github.com/mswiger/seogi-waybar) for an example of this in action.
 
 ## License
