@@ -57,16 +57,15 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
     handled = true;
   } else {
     switch (sym) {
-    // Ignore modifier keys (breaks a lot of things if they are processed).
-    // There might be more to consider here.
-    case XKB_KEY_Shift_L ... XKB_KEY_Hyper_R:
-      return false;
+    case XKB_KEY_space ... XKB_KEY_asciitilde:
+      uint32_t ch = xkb_state_key_get_utf32(seat->xkb_state, xkb_key);
+      handled = seat->enabled && hangul_ic_process(seat->input_context, ch);
+      break;
     case XKB_KEY_BackSpace:
       handled = seat->enabled && hangul_ic_backspace(seat->input_context);
       break;
     default:
-      uint32_t ch = xkb_state_key_get_utf32(seat->xkb_state, xkb_key);
-      handled = seat->enabled && hangul_ic_process(seat->input_context, ch);
+      return false;
     }
   }
 
@@ -77,10 +76,15 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
     free(commit_str);
   }
 
-  const ucschar *preedit_ucsstr = hangul_ic_get_preedit_string(seat->input_context);
-  char *preedit_str = ucsstr_to_str(preedit_ucsstr);
-  zwp_input_method_v2_set_preedit_string(seat->input_method, preedit_str, 0, strlen(preedit_str));
-  free(preedit_str);
+  // Only set the pre-edit string in Hangul mode and when the key has been handled (except the toggle key).
+  // Setting the pre-edit string has the side-effect of erasing any selected text. Thus, if the pre-edit string is set
+  // unnecessarily, any selected text will be lost.
+  if (seat->enabled && handled && sym != seat->state->toggle_key) {
+    const ucschar *preedit_ucsstr = hangul_ic_get_preedit_string(seat->input_context);
+    char *preedit_str = ucsstr_to_str(preedit_ucsstr);
+    zwp_input_method_v2_set_preedit_string(seat->input_method, preedit_str, 0, strlen(preedit_str));
+    free(preedit_str);
+  }
 
   zwp_input_method_v2_commit(seat->input_method, seat->serial);
 
