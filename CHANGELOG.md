@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.1]
+## [1.1.1] - 2022-01-28
 ### Fixed
 - Fixed an issue where highlighted text would be deleted with certain keypresses
 - Fixed cursor keys not commiting pre-edit text when pressed
