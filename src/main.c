@@ -57,6 +57,7 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
     handled = true;
   } else {
     switch (sym) {
+    case XKB_KEY_Return:
     case XKB_KEY_space ... XKB_KEY_asciitilde:
     case XKB_KEY_Home ... XKB_KEY_Begin:
       uint32_t ch = xkb_state_key_get_utf32(seat->xkb_state, xkb_key);
