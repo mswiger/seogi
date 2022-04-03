@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.3] - 2022-04-03
+### Fixed
+- Fixed remaining issues with keys getting stuck in a pressed state
+
 ## [1.1.2] - 2022-03-21
 ### Fixed
 - Fixed issue where pressing enter key would cause bad behavior (see #2)
