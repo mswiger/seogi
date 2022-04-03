@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+### Changed
+- Cleaned up code around key handling
+
 ## [1.1.3] - 2022-04-03
 ### Fixed
 - Fixed remaining issues with keys getting stuck in a pressed state

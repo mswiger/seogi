@@ -55,15 +55,11 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
       hangul_ic_reset(seat->input_context);
     }
     handled = true;
+  } else if (sym == XKB_KEY_BackSpace) {
+    handled = seat->enabled && hangul_ic_backspace(seat->input_context);
   } else {
-    switch (sym) {
-    case XKB_KEY_BackSpace:
-      handled = seat->enabled && hangul_ic_backspace(seat->input_context);
-      break;
-    default:
-      uint32_t ch = xkb_state_key_get_utf32(seat->xkb_state, xkb_key);
-      handled = seat->enabled && hangul_ic_process(seat->input_context, ch);
-    }
+    uint32_t ch = xkb_state_key_get_utf32(seat->xkb_state, xkb_key);
+    handled = seat->enabled && hangul_ic_process(seat->input_context, ch);
   }
 
   const ucschar *commit_ucsstr = hangul_ic_get_commit_string(seat->input_context);
@@ -115,13 +111,10 @@ static void handle_key(
   }
 
   bool handled = false;
-  switch (state) {
-  case WL_KEYBOARD_KEY_STATE_PRESSED:
+  if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
     handled = handle_key_pressed(seat, xkb_key);
-    break;
-  case WL_KEYBOARD_KEY_STATE_RELEASED:
+  } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
     handled = handle_key_released(seat, xkb_key);
-    break;
   }
 
   if (!handled) {
