@@ -48,6 +48,8 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
   bool handled = false;
   xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->xkb_state, xkb_key);
 
+  key_buffer_insert(seat->pressed_keys, xkb_key);
+
   if (sym == seat->state->toggle_key) {
     seat->enabled = !seat->enabled;
     seogi_emit_seat_status_changed(seat);
@@ -55,6 +57,9 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
       hangul_ic_reset(seat->input_context);
     }
     handled = true;
+  } else if (sym == XKB_KEY_Shift_L || sym == XKB_KEY_Shift_R) {
+    // Pressing Shift should not cause any changes to happen to commit string or preedit string.
+    return false;
   } else if (sym == XKB_KEY_BackSpace) {
     handled = seat->enabled && hangul_ic_backspace(seat->input_context);
   } else {
@@ -69,22 +74,21 @@ static bool handle_key_pressed(struct seogi_seat *seat, xkb_keycode_t xkb_key) {
     free(commit_str);
   }
 
-  // Only set the pre-edit string in Hangul mode and when the key has been handled (except the toggle key).
-  // Setting the pre-edit string has the side-effect of erasing any selected text. Thus, if the pre-edit string is set
-  // unnecessarily, any selected text will be lost.
-  if (seat->enabled && handled && sym != seat->state->toggle_key) {
-    const ucschar *preedit_ucsstr = hangul_ic_get_preedit_string(seat->input_context);
-    char *preedit_str = ucsstr_to_str(preedit_ucsstr);
-    zwp_input_method_v2_set_preedit_string(seat->input_method, preedit_str, 0, strlen(preedit_str));
-    free(preedit_str);
+  if (handled) {
+    key_buffer_insert(seat->handled_keys, xkb_key);
+
+    // Only set the pre-edit string in Hangul mode and when the key has been handled (except the toggle key).
+    // Setting the pre-edit string has the side-effect of erasing any selected text. Thus, if the pre-edit string is
+    // set unnecessarily, any selected text will be lost.
+    if (seat->enabled && sym != seat->state->toggle_key) {
+      const ucschar *preedit_ucsstr = hangul_ic_get_preedit_string(seat->input_context);
+      char *preedit_str = ucsstr_to_str(preedit_ucsstr);
+      zwp_input_method_v2_set_preedit_string(seat->input_method, preedit_str, 0, strlen(preedit_str));
+      free(preedit_str);
+    }
   }
 
   zwp_input_method_v2_commit(seat->input_method, seat->serial);
-
-  if (handled) {
-    key_buffer_insert(seat->handled_keys, xkb_key);
-  }
-  key_buffer_insert(seat->pressed_keys, xkb_key);
 
   return handled;
 }

@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## [1.1.4] - 2022-04-07
 ### Changed
 - Cleaned up code around key handling
+
+### Fixed
+- Fixed issue where pressing shift key would commit text
 
 ## [1.1.3] - 2022-04-03
 ### Fixed
